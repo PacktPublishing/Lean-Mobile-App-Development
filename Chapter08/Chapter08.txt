@@ -1,0 +1,353 @@
+public class FirebaseRepository implements IRemoteRepository {
+     private Firebase reference;
+     private Context context;
+     public FirebaseRepository(Context context){
+         Firebase.setAndroidContext(context);
+         this.context = context;
+         reference = new Firebase("https://<your endpoint here>/canvapp/"); 
+    }
+
+--------------------------------------------------------------------------------
+
+dependencies { 
+    compile fileTree(dir: 'libs', include: ['*.jar']) 
+    testCompile 'junit:junit:4.12' 
+    compile 'com.android.support:appcompat-v7:23.3.0' 
+    compile 'com.android.support:design:23.3.0' 
+    compile 'com.android.support:cardview-v7:23.1.1' 
+    compile 'com.android.support:recyclerview-v7:23.3.0' 
+    compile 'com.squareup.retrofit:converter-gson:2.0.0-beta2' 
+    compile 'com.firebase:firebase-client-android:2.5.2+' 
+} 
+
+--------------------------------------------------------------------------------
+
+{ 
+  "ELEMENTS": [ 
+    ... 
+{ 
+  "ID": "PROPOSITIONS", 
+  "TITLE": "VALUE PROPOSITIONS", 
+  "DESCRIPTION": "what value do you deliver to the customer? Which of your customer's problems are you helping to resolve? What bundles of services are you offering? Which needs do you satisfy?", 
+  "HINT": "Enter your proposition here. What are the characteristics of it? What does it make unique? Is it price? Cost or risk reduction? A better design or performance? Is it more convenient? Why?..." 
+}, 
+{ 
+  "ID": "SEGMENTS", 
+  "TITLE": "CUSTOMER SEGMENTS", 
+  "DESCRIPTION": "For who are you creating value?\nWho are you most important customers?", 
+  "HINT": "Describe your customer segments here. Be as specific as possible. A niche market is much better as aiming for 'everybody'. If it is a platform what customers do you want to bring together. Who are your most important customers?..."
+ }, 
+{ 
+  "ID": "CHANNELS", 
+  "TITLE": "CHANNELS", 
+  "DESCRIPTION": "Through which channels do your customer segments want to be reached? How are you reaching them now? How are your channels integrated?\nWhich ones work best?", 
+  "HINT": "Describe your channels. How do you raise awareness? How can you help your customers to evaluate the value proposition? How can they purchase your services and how are they delivered?..." 
+} 
+
+--------------------------------------------------------------------------------
+
+public class Canvas implements Parcelable { 
+    private String id; 
+    public List<CanvasElement> ELEMENTS; 
+    public Canvas(){ 
+        ELEMENTS = new ArrayList<>(); 
+    } 
+    public void setId(String value){ 
+        this.id= value; 
+    } 
+    public String getId(){ 
+        return this.id; 
+    } 
+    ... 
+
+--------------------------------------------------------------------------------
+
+public class CanvasElement implements Parcelable { 
+    public String ID; 
+    public String TITLE; 
+    public String DESCRIPTION; 
+    public String VALUE; 
+    public String HINT; 
+ 
+    @Override 
+    public int describeContents() { 
+        return 0; 
+    } 
+    @Override 
+ 
+    public void writeToParcel(Parcel dest, int flags) { 
+        dest.writeString(this.ID); 
+        dest.writeString(this.TITLE); 
+        dest.writeString(this.DESCRIPTION); 
+        dest.writeString(this.VALUE); 
+        dest.writeString(this.HINT); 
+    } 
+... 
+    protected CanvasElement(Parcel in) { 
+        this.ID = in.readString(); 
+        this.TITLE = in.readString(); 
+        this.DESCRIPTION = in.readString(); 
+        this.VALUE = in.readString(); 
+        this.HINT = in.readString(); 
+    } 
+ 
+    public static final Parcelable.Creator<CanvasElement> CREATOR = new Parcelable.Creator<CanvasElement>() { 
+        @Override 
+        public CanvasElement createFromParcel(Parcel source) { 
+            return new CanvasElement(source); 
+        } 
+        @Override 
+        public CanvasElement[] newArray(int size) { 
+            return new CanvasElement[size]; 
+        } 
+    }; 
+} 
+
+-----------------------------------------------------------------------------
+
+public class LocalRepository { 
+    ... 
+    public static CanvasElementsModel getElements(Context context){ 
+        Reader reader = getStreamReaderForRawAsset(context,R.raw.canvas); 
+        return new Gson().fromJson(reader, CanvasElementsModel.class); 
+    } 
+    private static InputStreamReader getStreamReaderForRawAsset(Context context, int resId){ 
+        InputStream stream = context.getResources().openRawResource(resId); 
+        return new InputStreamReader(stream); 
+    } 
+} 
+
+-----------------------------------------------------------------------------
+
+public interface IRemoteRepository { 
+    Canvas createCanvas(); 
+    void loadCanvasModels(OnRepositoryResult handler); 
+    void saveCanvasModel(Canvas model); 
+} 
+
+-----------------------------------------------------------------------------
+
+public class FirebaseRepository implements IRemoteRepository { 
+    private Firebase reference; 
+    private Context context; 
+    public FirebaseRepository(Context context){ 
+        Firebase.setAndroidContext(context); 
+        this.context = context; 
+        reference = new Firebase("https://torrid-heat-3108.firebaseio.com/canvapp/"); 
+    } 
+
+-----------------------------------------------------------------------------
+
+    @Override 
+    public Canvas createCanvas() { 
+        Firebase ref = reference.child("canvases"); 
+        Canvas canvas = new Canvas() 
+        CanvasElementsModel model= LocalRepository.getElements(context); 
+        canvas.ELEMENTS= model.ELEMENTS; 
+        Firebase postRef = ref.push(); 
+        postRef.setValue(canvas); 
+        canvas.setId(postRef.getKey()); 
+        return canvas; 
+    } 
+
+-----------------------------------------------------------------------------
+
+    @Override 
+    public void saveCanvasModel(Canvas model) { 
+        Firebase ref = reference.child("canvases").child(model.getId()); 
+        ref.setValue(model); 
+    } 
+
+-----------------------------------------------------------------------------
+
+    @Override 
+    public void loadCanvasModels(final OnRepositoryResult handler) { 
+        Firebase ref = reference.child("canvases"); 
+        ref.addValueEventListener(new ValueEventListener() { 
+            @Override 
+            public void onDataChange(DataSnapshot snapshot) { 
+                CanvasListModel model = new CanvasListModel(); 
+                for (DataSnapshot canvasSnapshot: snapshot.getChildren()) { 
+                    Canvas canvas = canvasSnapshot.getValue(Canvas.class); 
+                    canvas.setId(canvasSnapshot.getKey()); 
+                    model.canvases.add(canvas); 
+                } 
+                handler.onResult(model); 
+            } 
+            @Override 
+            public void onCancelled(FirebaseError firebaseError) { 
+                System.out.println("The read failed: " + firebaseError.getMessage()); 
+            } 
+        }); 
+    } 
+} 
+
+------------------------------------------------------------------------------
+
+public void onList(){ 
+    CanvasListFragment fragment = CanvasListFragment.newInstance(); 
+    showFragment(fragment); 
+} 
+public void onEdit(Canvas canvas){ 
+    CanvasEditFragment fragment =  CanvasEditFragment.newInstance(canvas); 
+    showFragment(fragment);
+ } 
+public void onEdit(){ 
+    Canvas canvas = getRepository().createCanvas(); 
+    onEdit(canvas); 
+} 
+private void showFragment(Fragment fragment){ 
+    FragmentTransaction ft = getFragmentManager().beginTransaction(); 
+    ft.replace(R.id.main_layout_container, fragment, fragment.getClass().toString()); 
+    ft.commit(); 
+} 
+... 
+public IRemoteRepository getRepository(){ 
+    return new FirebaseRepository(this); 
+} 
+...
+
+-----------------------------------------------------------------------------
+
+public class CanvasListFragment extends Fragment 
+        implements OnCardViewClicked, OnRepositoryResult{ 
+    private RecyclerView recyclerView; 
+    private CanvasListAdapter adapter; 
+    private CanvasListModel viewModel; 
+ 
+... 
+    @Override 
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, 
+                             Bundle savedInstanceState) { 
+        final View view = inflater.inflate(R.layout.fragment_canvas_list, container, false); 
+        recyclerView = (RecyclerView)view.findViewById(R.id.canvas_recycle_view); 
+        loadData(); 
+        return view; 
+    } 
+ 
+    private void loadData(){ 
+        recyclerView.setLayoutManager(new LinearLayoutManager(getActivity())); 
+        recyclerView.setItemAnimator(new DefaultItemAnimator()); 
+        ((MainActivity)getActivity()).getRepository().loadCanvasModels(this); 
+            } 
+ 
+    @Override 
+    public void onCardClicked(View view, int position) { 
+        ((MainActivity)getActivity()).onEdit(viewModel.canvases.get(position)); 
+    } 
+
+-------------------------------------------------------------------------------
+
+    @Override 
+    public void onResult(CanvasListModel result) { 
+        viewModel = result; 
+        adapter = new CanvasListAdapter(viewModel, R.layout.adapter_canvas_list, getActivity()); 
+        adapter.setOnCardViewClicked(this); 
+        recyclerView.setAdapter(adapter); 
+    } 
+} 
+
+-------------------------------------------------------------------------------
+
+public class CanvasPagerFragment extends Fragment
+       implements OnRepositoryResult, View.OnClickListener { 
+ 
+    private static final String ARG_CANVAS = "ARG_CANVAS"; 
+    private Canvas canvas; 
+    private ViewPager pager; 
+    private CanvasElementPageAdapter pagerAdapter; 
+ 
+    public static CanvasPagerFragment newInstance(Canvas canvas) { 
+        CanvasPagerFragment fragment = new CanvasPagerFragment(); 
+        Bundle bundle = new Bundle(); 
+        bundle.putParcelable(ARG_CANVAS, canvas); 
+        fragment.setArguments(bundle); 
+        return fragment; 
+    } 
+ 
+    @Override 
+    public void onCreate(Bundle savedInstanceState) { 
+        super.onCreate(savedInstanceState); 
+        canvas = getArguments().getParcelable(ARG_CANVAS); 
+    } 
+ 
+    @Override 
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) { 
+       final View view = inflater.inflate(R.layout.fragment_canvas_edit, container, false); 
+        pager = (ViewPager) view.findViewById(R.id.canvas_edit_pager); 
+        view.findViewById(R.id.canvas_edit_save).setOnClickListener(this); 
+        loadData(); 
+        return view; 
+    } 
+
+-------------------------------------------------------------------------------
+
+private void loadData(){ 
+        MainActivity ma = (MainActivity)getActivity(); 
+        pagerAdapter = new CanvasElementPageAdapter( 
+         ma.getSupportFragmentManager(),getActivity(),canvas); 
+        pager.setOffscreenPageLimit(11); 
+        pager.setAdapter(pagerAdapter); 
+    } 
+ 
+    @Override 
+    public void onClick(View v) { 
+        onSaveData(); 
+    } 
+
+------------------------------------------------------------------------------
+
+    private void onSaveData(){ 
+        Canvas canvas = pagerAdapter.getCanvas(); 
+        MainActivity activity = (MainActivity)getActivity(); 
+        activity.getRepository().saveCanvasModel(canvas); 
+        activity.onList(); 
+    } 
+    ... 
+    } 
+} 
+
+------------------------------------------------------------------------------
+
+public class CanvasElementFragment extends Fragment { 
+    private static final String ARG_ELEMENT = "ARG_ELEMENT"; 
+    public static CanvasElementFragment newInstance(CanvasElement element) { 
+        CanvasElementFragment fragment = new CanvasElementFragment(); 
+        Bundle bundle = new Bundle();
+         bundle.putParcelable(ARG_ELEMENT, element); 
+        fragment.setArguments(bundle); 
+        return fragment; 
+    } 
+    private CanvasElement element; 
+ 
+    public CanvasElement getElement(){ 
+        if (getView() != null) { 
+            EditText editValue = (EditText) getView().findViewById(R.id.element_value); 
+            element.VALUE = editValue.getText().toString(); 
+        } 
+        return element; 
+    } 
+    @Override 
+    public void onCreate(Bundle savedInstanceState) { 
+        super.onCreate(savedInstanceState); 
+        element = getArguments().getParcelable(ARG_ELEMENT); 
+    }
+
+----------------------------------------------------------------------------
+
+    @Override 
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) { 
+        final View view = inflater.inflate(R.layout.fragment_canvas_element, container, false); 
+        ((TextView)view.findViewById(R.id.element_text_title)).setText(element.TITLE); 
+        ((TextView)view.findViewById(R.id.element_text_description)).setText(element.DESCRIPTION); 
+        ((TextView) view.findViewById(R.id.element_value)).setHint(element.HINT);
+         if (element.VALUE != null){ 
+            EditText editValue = (EditText) view.findViewById(R.id.element_value); 
+            editValue.setText(element.VALUE); 
+        } 
+        return view; 
+    } 
+} 
+
+-----------------------------------------------------------------------------
+

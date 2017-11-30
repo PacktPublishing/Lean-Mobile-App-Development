@@ -1,0 +1,325 @@
+... 
+apply plugin: 'io.fabric' 
+ 
+repositories { 
+   maven { url 'https://maven.fabric.io/public' } 
+   maven { 
+       url 'https://maven.google.com' 
+   } 
+   mavenCentral() 
+} 
+ 
+dependencies { 
+  ... 
+   compile('com.twitter.sdk.android:twitter:1.13.3@aar') { 
+       transitive = true; 
+   } 
+ 
+   compile('com.twitter.sdk.android:tweet-composer:1.0.3@aar') { 
+       transitive = true; 
+   } 
+ 
+   ... 
+   implementation 'com.google.firebase:firebase-auth:11.4.2' 
+   implementation 'com.google.firebase:firebase-database:10.2.4' 
+} 
+ 
+apply plugin: 'com.google.gms.google-services' 
+
+----------------------------------------------------------------------------
+
+<meta-data 
+    android:name="io.fabric.ApiKey" 
+    android:value="fill in your api key" /> 
+
+----------------------------------------------------------------------------
+
+<resources> 
+   <string name="twitter_key">fill with your own Twitter key</string> 
+   <string name="twitter_secret">fill your own Twitter secret</string> 
+
+-----------------------------------------------------------------------------
+
+private fun initFabric(){ 
+   val authConfig = TwitterAuthConfig(getString(R.string.twitter_key), getString(R.string.twitter_secret)) 
+   Fabric.with(this, Twitter(authConfig)) 
+   Fabric.with(this, TwitterCore(authConfig), TweetComposer()) 
+} 
+
+------------------------------------------------------------------------------
+
+private fun setupTwitterLoginButton(){ 
+  twitter_login_button.setCallback(object : Callback<TwitterSession>() { 
+       override fun success(result: Result<TwitterSession>) { 
+           mTwitterSession = result.data 
+           Log.i(javaClass.simpleName, "Twitter login @" + result.data.getUserName() + ")") 
+           val credential = TwitterAuthProvider.getCredential( 
+                   result.data.getAuthToken().token, 
+                   result.data.getAuthToken().secret) 
+           signinWithTwitterAuthCredential(credential) 
+       } 
+ 
+       override fun failure(exception: TwitterException) { 
+           Log.d(javaClass.simpleName, "Login with Twitter failure", exception) 
+       } 
+   }) 
+} 
+
+-----------------------------------------------------------------------------
+
+private fun signinWithTwitterAuthCredential (credential: AuthCredential){ 
+   mAuth.signInWithCredential(credential) 
+       .addOnCompleteListener(this, OnCompleteListener<AuthResult> { 
+           if (it.isSuccessful) { 
+               AuthenticationHelper.user = it.result.user 
+               Log.i(javaClass.simpleName, 
+                 "User logged in or registered with twitter name ${AuthenticationHelper.user?.displayName}") 
+               continueFlow() 
+           } else { 
+               if (it.exception is FirebaseAuthInvalidCredentialsException) { 
+                   onboarding_code_feedback_text.text = "Invalid code." 
+               } 
+           } 
+       }) 
+} 
+
+----------------------------------------------------------------------------
+
+private fun sendPhone(){ 
+   val number = onboarding_phone.text.toString() 
+    PhoneAuthProvider.getInstance().verifyPhoneNumber( 
+           number, 60, TimeUnit.SECONDS,  this, getCallback()); 
+} 
+
+---------------------------------------------------------------------------
+
+private fun getCallback(): PhoneAuthProvider.OnVerificationStateChangedCallbacks { 
+   val callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() { 
+     ... 
+       override fun onCodeSent(verificationId: String?, token: PhoneAuthProvider.ForceResendingToken?) { 
+           mVerificationId = verificationId; 
+           mResendToken = token; 
+           ... 
+       } 
+   } 
+   return callbacks 
+} 
+
+--------------------------------------------------------------------------
+
+private fun sendCode(){ 
+   val verification = mVerificationId 
+   if (verification != null) { 
+       val code = onboarding_code.text.toString() 
+       val credential = PhoneAuthProvider.getCredential(verification, code) 
+       signInWithPhoneAuthCredential(credential) 
+   } 
+} 
+
+---------------------------------------------------------------------------
+
+private fun signInWithPhoneAuthCredential(credential: PhoneAuthCredential) { 
+   mAuth.signInWithCredential(credential) 
+       .addOnCompleteListener(this, OnCompleteListener<AuthResult> { 
+           if (it.isSuccessful) { 
+               AuthenticationHelper.user = it.result.user 
+               Log.i(javaClass.simpleName, 
+                  "User logged in or registered with phone no ${AuthenticationHelper.user?.phoneNumber}") 
+               continueFlow() 
+
+---------------------------------------------------------------------------
+
+fun onList() { 
+   val fragment = StoriesFragment.newInstance() 
+   showFragment(fragment) 
+} 
+ 
+fun onCreateStory() { 
+   val newStory = Story() 
+   newStory.lastUpdate = "today" 
+   val fragment = StoryContributeFragment.newInstance(newStory) 
+   showFragment(fragment) 
+} 
+ 
+fun onContribute(story: Story) { 
+   val fragment = StoryContributeFragment.newInstance(story) 
+   showFragment(fragment) 
+} 
+ 
+fun onReadStory(story: Story) { 
+   val fragment = StoryDetailFragment.newInstance(story) 
+   showFragment(fragment) 
+} 
+ 
+fun onLateOnboarding(story: Story) { 
+   val intent = Intent(this, OnboardingActivity::class.java) 
+   intent.putExtra(OnboardingActivity.ARG_LATE, true) 
+   intent.putExtra(OnboardingActivity.ARG_STORY, story) 
+   startActivityForResult(intent, REQUEST_LATE_ONBOARDING) 
+} 
+ 
+private fun showFragment(fragment: Fragment) { 
+   val ft = fragmentManager.beginTransaction() 
+   ft.replace(R.id.main_fragment_container, fragment, fragment.javaClass.toString()) 
+   ft.commit() 
+} 
+
+-----------------------------------------------------------------------------
+
+val repository: Repository get() = Repository(this) 
+
+-----------------------------------------------------------------------------
+
+class Repository(private val context: Context) { 
+ 
+   fun getStories(handler: OnRepositoryResult) { 
+       val content = getDummyContent() 
+       handler.onResult(content) 
+   } 
+ 
+   fun updateContributions(story: Story) { 
+       if (story.id == null) { 
+           addStory(story) 
+       } 
+ 
+       dummyContentList.forEach { 
+           if (it.id.equals(story.id, ignoreCase = true)){ 
+               it.contributions  = story.contributions 
+           } 
+       } 
+   } 
+ 
+   fun addStory(story: Story) { 
+       if (story.id == null) { 
+           story.id = UUID.randomUUID().toString() 
+       } 
+       dummyContentList.add(story) 
+   } 
+ 
+   companion object { 
+       private var dummyContentList = mutableListOf<Story>() 
+       private fun getDummyContent(): List<Story> { 
+ 
+           if (dummyContentList.isEmpty()) { 
+               val dummy = mutableListOf<Story>() 
+               val s1 = Story("A first story", "MikeR", "Today") 
+               s1.id = "1" 
+               s1.contributions.add(Contribution("Once upon a time", "MikeR")) 
+               s1.contributions.add(Contribution("a giant rabbit did exist", "Pete")) 
+               s1.contributions.add(Contribution("in a galaxy far far away", "Floris")) 
+ 
+               val s2 = Story("A second story", "MikeR", "Yesterday") 
+             ... 
+               dummy.add(s1) 
+  ... 
+               dummyContentList = dummy 
+           } 
+           return dummyContentList 
+       } 
+   } 
+} 
+
+-----------------------------------------------------------------------------
+
+class Story : Parcelable { 
+   var id: String? = null 
+   var title: String? = null 
+   var initiator: String? = null 
+   var lastUpdate: String? = null 
+   var contributions = mutableListOf<Contribution>() 
+...  
+   fun getFullStory(includeAuthors: Boolean): String { ...  }    
+ 
+val summary: String 
+       get() { 
+           val builder = StringBuilder() 
+           if (contributions != null) { 
+               var start = contributions.size - 3 
+               if (start <= 0) { start = 0 } 
+               for (build in start..contributions.size - 1) { 
+                   builder.append(contributions[build].paragraph.toString() + "\n") 
+               } 
+               return builder.toString() 
+           } else { 
+               return "This story has not started yet!" 
+           } 
+       } 
+   ...
+
+------------------------------------------------------------------------------
+
+class StoriesFragment : Fragment(), OnCardViewClicked, OnRepositoryResult { 
+   private var recyclerView: RecyclerView? = null 
+   private var adapter: StoryAdapter? = null 
+   private var viewModel = mutableListOf<Story>() 
+... 
+
+-------------------------------------------------------------------------------
+
+override fun onResult(result: List<Story>) { 
+   viewModel = result.toMutableList() 
+   adapter = StoryAdapter(viewModel) 
+   adapter?.setOnCardViewClicked(this) 
+   recyclerView?.adapter = adapter 
+} 
+
+------------------------------------------------------------------------------
+
+override fun onCardClicked(view: View, position: Int) { 
+   (activity as MainActivity).onReadStory(viewModel[position]) 
+} 
+
+------------------------------------------------------------------------------
+
+class StoryDetailFragment : Fragment() { 
+   private var mStory: Story? = null 
+   override fun onCreate(savedInstanceState: Bundle?) { 
+       super.onCreate(savedInstanceState) 
+       mStory = getArguments().getParcelable(ARG_STORY) 
+   } 
+
+------------------------------------------------------------------------------
+
+private fun onShare() { 
+   val builder = TweetComposer.Builder(getActivity()) 
+           .text(String.format(getString(R.string.sharing_text), mStory?.title)) 
+   builder.show() 
+} 
+
+-------------------------------------------------------------------------------
+
+fun onLateOnboarding(story: Story) { 
+   val intent = Intent(this, OnboardingActivity::class.java) 
+   intent.putExtra(OnboardingActivity.ARG_LATE, true) 
+   intent.putExtra(OnboardingActivity.ARG_STORY, story) 
+   startActivityForResult(intent, REQUEST_LATE_ONBOARDING) 
+} 
+
+--------------------------------------------------------------------------------
+
+private fun continueFlow(){ 
+   if (mIsLateOnboarding){ 
+       val returnIntent = Intent() 
+       returnIntent.putExtra(OnboardingActivity.ARG_STORY, mStory) 
+       setResult(Activity.RESULT_OK, returnIntent) 
+       this.finish() 
+... 
+
+--------------------------------------------------------------------------------
+
+override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent) { 
+   if (requestCode == REQUEST_LATE_ONBOARDING) { 
+       if (resultCode == Activity.RESULT_OK) { 
+           val story = data.getParcelableExtra<Story>(OnboardingActivity.ARG_STORY) 
+           val lastContribution = story.contributions.last() 
+           lastContribution.contributor = AuthenticationHelper.userName 
+           repository.updateContributions(story) 
+           onList() 
+       } 
+   } 
+} 
+
+--------------------------------------------------------------------------------
+
+
+

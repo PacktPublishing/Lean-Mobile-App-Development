@@ -1,0 +1,62 @@
+target 'flyng' do 
+  use_frameworks! 
+  pod 'Fabric' 
+  pod 'Crashlytics'   
+  pod 'Cartography'   
+  pod 'Parse' 
+  pod 'ParseFacebookUtilsV4' 
+  pod 'ParseLiveQuery'  
+  pod 'JSQMessagesViewController' 
+  pod 'QuickBlox' 
+ 
+--------------------------------------------------------------------------------------------
+
+import UIKit 
+protocol RepositoryProtocol { 
+    func authenticate (handler: RepositoryResultDelegate, request: AuthenticateRequest) 
+    ... 
+    func getProfile (handler: RepositoryResultDelegate, request: GetMyProfileRequest) 
+    func getCategories (handler: RepositoryResultDelegate, request: GetCategoriesRequest) 
+    func getCandidates (handler: RepositoryResultDelegate, request: GetCandidatesRequest) 
+    func getMatchList (handler:RepositoryResultDelegate , request: GetMatchListRequest) 
+    func pushMessage (handler: RepositoryResultDelegate, request: PushRequest)  
+    ... 
+} 
+
+------------------------------------------------------------------------------------------
+
+ func getCandidates (handler: RepositoryResultDelegate, request: GetCandidatesRequest){  
+  let params =   
+  [ 
+            "myId": request.profileId, 
+            "fromAge": myProfile.CriteriaAgeFrom, 
+            "toAge" : myProfile.CriteriaAgeTo, 
+            "gender" : myProfile.CriteriaGender, 
+            "maxDistance" : myProfile.CriteriaMaxDistance, 
+            "category": request.categoryId, 
+            "skip": request.skip, 
+            "limit" : request.limit 
+     ] 
+     PFCloud.callFunctionInBackground("getCandidates", withParameters:    
+  params as [NSObject : AnyObject], block: { (object, error) in 
+    ... 
+
+-------------------------------------------------------------------------------------------
+
+func application(application: UIApplication,           
+     didFinishLaunchingWithOptions launchOptions: [NSObject: AnyObject]?) -> Bool {         
+        ...         
+        Fabric.with([Answers.self, Crashlytics.self])
+
+-------------------------------------------------------------------------------------------
+
+AnalyticsUtil.logEvent(AnalyticsUtil.eventSignupFacebook) 
+ 
+static func logEvent(event: String){ 
+   ... 
+   Answers.logCustomEventWithName(event, customAttributes: nil) 
+} 
+
+-------------------------------------------------------------------------------------------
+
+

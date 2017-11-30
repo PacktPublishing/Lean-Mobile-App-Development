@@ -1,0 +1,84 @@
+dependencies {
+ ...
+   implementation "org.jetbrains.kotlin:kotlin-stdlib-jre7:$kotlin_version"
+   implementation 'com.android.support:appcompat-v7:25.4.0'
+   implementation 'com.android.support.constraint:constraint-layout:1.0.2'
+   implementation 'com.google.firebase:firebase-config:11.6.0'
+}
+apply plugin: 'com.google.gms.google-services'
+
+--------------------------------------------------------------------------------
+
+val firebaseRemoteConfig = FirebaseRemoteConfig.getInstance()
+var firebaseAnalytics: FirebaseAnalytics? = null
+override fun onCreate(savedInstanceState: Bundle?) {
+ ...
+   val configSettings = FirebaseRemoteConfigSettings.Builder()
+           .setDeveloperModeEnabled(BuildConfig.DEBUG)
+           .build()
+   firebaseAnalytics = FirebaseAnalytics.getInstance(this)
+   firebaseRemoteConfig.setConfigSettings(configSettings)
+   firebaseRemoteConfig.setDefaults(R.xml.remote_config_defaults)
+   val token = FirebaseInstanceId.getInstance().getToken()
+   Log.i(javaClass.simpleName, "token = ${token}")
+   val cacheExpiration = 1L
+   Log.i(javaClass.simpleName,"fetch")
+firebaseRemoteConfig.fetch(cacheExpiration).addOnCompleteListener(this)
+}
+
+--------------------------------------------------------------------------------
+
+override fun onComplete(task: Task<Void>) {
+   if (task.isSuccessful){
+       Log.i(javaClass.simpleName, "complete success")
+       firebaseRemoteConfig.activateFetched()
+   }
+   else{
+       Log.i(javaClass.simpleName, "complete no success")
+   }
+   applyRemoteConfiguration()
+}
+
+-------------------------------------------------------------------------------
+
+private fun applyRemoteConfiguration(){
+   val variant = firebaseRemoteConfig.getString("experiment_variant")
+   Log.i(javaClass.simpleName, "experiment = ${variant}")
+   firebaseAnalytics?.setUserProperty("Experiment", variant)
+   val onboardingColor = firebaseRemoteConfig.getString("onboarding_color")
+   Log.i(javaClass.simpleName, "onboarding color= ${onboardingColor}")
+   if (onboardingColor=="blue") {
+findViewById(R.id.sign_up_button).setBackgroundColor(Color.parseColor("#0000ff"))
+   }
+   else{
+       findViewById(R.id.sign_up_button).setBackgroundColor(Color.parseColor("#00ff00"))
+   }
+   val onboardingText = firebaseRemoteConfig.getString("onboarding_text")
+   Log.i(javaClass.simpleName, "onboarding text= ${onboardingText}")
+   (findViewById(R.id.sign_up_text) as TextView).text = onboardingText
+   val onboardingBackground = firebaseRemoteConfig.getString("onboarding_background")
+   Log.i(javaClass.simpleName, "onboarding bg= ${onboardingBackground}")
+   if (onboardingBackground=="strawberry") {
+       (findViewById(R.id.image).setBackgroundResource(R.drawable.strawberry))
+   }
+   else{
+       (findViewById(R.id.image).setBackgroundResource(R.drawable.oranges))
+   }
+}
+
+----------------------------------------------------------------------------------
+
+private fun onSignup(){
+   logEvent("signUp")
+   Log.i(javaClass.simpleName, "sign up button clicked")
+}
+private fun logEvent(eventName: String){
+   firebaseAnalytics?.logEvent(eventName, Bundle())
+}
+
+---------------------------------------------------------------------------------
+
+11-10 11:22:09.856 27547-27547/com.packt.splittestdemo I/MainActivity: token = cG-QulinNq0:APA91bH2lOQThh57qNseb3PDoBRDy-mPXvE_vezn1nNFBiDrWd0a…
+
+---------------------------------------------------------------------------------
+

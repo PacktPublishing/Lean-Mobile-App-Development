@@ -1,0 +1,26 @@
+public interface IRepository{ 
+ 
+    public void getNews(OnRepositoryResult handler, GetNewsRequest request); 
+
+-------------------------------------------------------------------------------------
+
+protocol RepositoryProtocol { 
+     
+func getNews(handler: RepositoryResultDelegate, request: GetNewsRequest) 
+
+-------------------------------------------------------------------------------------
+
+public class RemoteRepository implements IRepository { 
+ 
+... 
+    @Override 
+    public void getNews(OnRepositoryResult handler, GetNewsRequest request) { 
+        // Get data asynchronously  and return the result 
+    } 
+
+-------------------------------------------------------------------------------------
+
+public class RemoteRepository: RepositoryProtocol  { 
+     
+    ... 
+    func getNews(handler: RepositoryResultDelegate, request: GetNewsRequest){ 

@@ -1,0 +1,176 @@
+@interface PurchaseViewController : UIViewController <SKProductsRequestDelegate, SKPaymentTransactionObserver> 
+... 
+#import "PurchaseViewController.h" 
+#import <StoreKit/StoreKit.h> 
+... 
+ 
+/* 
+ 4 In-App Purchases 
+*/ 
+#define kProductTipGenerous @"EMP_TIP_JAR_GENEROUS" 
+#define kProductTipMassive @"EMP_TIP_JAR_MASSIVE" 
+#define kProductTipAmazing @"EMP_TIP_JAR_AMAZING" 
+@implementation PurchaseViewController 
+... 
+
+----------------------------------------------------------------------------------------------------------------
+
+@synthesize scene; 
+ 
+- (void)viewDidLoad { 
+    [super viewDidLoad]; 
+     
+    [Flurry logEvent:analyticsPurchaseViewShown];  
+... 
+    [self loadProductsFromStore]; 
+} 
+ 
+-(void)loadProductsFromStore{  
+    if([SKPaymentQueue canMakePayments]){ 
+        NSLog(@"User can make payments");  
+SKProductsRequest *productsRequest = [[SKProductsRequest alloc] initWithProductIdentifiers:[NSSet setWithObjects: 
+kProductColorfulWorld,      
+      kProductTipGenerous,  
+      kProductTipMassive,  
+      ProductTipAmazing, nil]]; 
+         
+        productsRequest.delegate = self; 
+        [productsRequest start]; 
+    } 
+    else {  
+        NSLog( @"User cannot make payments,  
+                 perhaps due to parental controls"); 
+    } 
+} 
+
+----------------------------------------------------------------------------------------------------------------
+
+- (void)productsRequest:(SKProductsRequest *)request didReceiveResponse:(SKProductsResponse *)response{     
+    if (self.view == nil){ 
+        return; 
+    } 
+     
+    SKProduct *validProduct = nil; 
+    int count = (int)[response.products count];  
+    products = response.products;  
+    if(count > 0){  
+        validProduct = [response.products objectAtIndex:0]; 
+        NSLog(@"Products Available!"); 
+        ...  
+        for (SKProduct* product in products){ 
+            [self enableProductPurchaseOption:product]; 
+        } 
+    } 
+    else if(!validProduct){ 
+        NSLog(@"No products available"); 
+    } 
+} 
+ 
+-(void)enableProductPurchaseOption:(SKProduct*)product{ 
+     
+ if ([product.productIdentifier    
+       isEqualToString:kProductTipGenerous]){ 
+        [nameGenerous setEnabled:YES]; 
+        [priceGenerous setEnabled:YES]; 
+       [nameGenerous setTitle: @"Generous donation"  
+      forState:UIControlStateNormal]; 
+      [priceGenerous setTitle: product.price.stringValue  
+                          forState:(UIControlStateNormal)]; 
+      } 
+ ...     
+if ([product.productIdentifier isEqualToString:kProductTipAmazing]){ 
+        [nameAmazing setEnabled:YES]; 
+        [priceAmazing setEnabled:YES]; 
+        [nameAmazing setTitle: @"Amazing donation"  
+          forState:UIControlStateNormal]; 
+        [priceAmazing setTitle: product.price.stringValue      
+          forState:(UIControlStateNormal)]; 
+      } 
+    } 
+
+------------------------------------------------------------------------------------------------------------------
+
+-(void)purchase:(SKProduct *)product{ 
+     
+    if (products==nil || products.count==0){ 
+        return; 
+    } 
+    SKPayment *payment = [SKPayment paymentWithProduct:product]; 
+    [[SKPaymentQueue defaultQueue] addTransactionObserver:self]; 
+    [[SKPaymentQueue defaultQueue] addPayment:payment]; 
+} 
+ 
+- (void)paymentQueue:(SKPaymentQueue *)queue updatedTransactions:(NSArray *)transactions{ 
+     
+    for(SKPaymentTransaction *transaction in transactions){ 
+         
+        switch(transaction.transactionState){ 
+            case SKPaymentTransactionStatePurchasing: 
+                NSLog(@"Transaction state -> Purchasing"); 
+                //called when the user is in the process of  
+          purchasing. 
+                break; 
+         
+            case SKPaymentTransactionStatePurchased: 
+                //this is called when the user has successfully  
+          purchased the package  
+                [self enablePurchaseProduct:  
+         transaction.payment.productIdentifier]; 
+                 
+                [[SKPaymentQueue defaultQueue]  
+         finishTransaction:transaction]; 
+                NSLog(@"Transaction state -> Purchased");  
+                break; 
+             
+            case SKPaymentTransactionStateRestored:  
+                NSLog(@"Transaction state -> Restored"); 
+                [self enablePurchaseProduct:  
+         transaction.payment.productIdentifier]; 
+                [[SKPaymentQueue defaultQueue]  
+         finishTransaction:transaction];  
+                break; 
+             
+            case SKPaymentTransactionStateFailed:  
+                if(transaction.error.code ==  
+           SKErrorPaymentCancelled){ 
+                    NSLog(@"Transaction state -> Cancelled");  
+                } 
+                [[SKPaymentQueue defaultQueue]  
+          finishTransaction:transaction];  
+                break; 
+            default: 
+                break; 
+        } 
+    } 
+} 
+
+----------------------------------------------------------------------------------------------------------
+
+- (void)restore{ 
+    [[SKPaymentQueue defaultQueue] restoreCompletedTransactions]; 
+} 
+
+-----------------------------------------------------------------------------------------------------------
+
+- (void) paymentQueueRestoreCompletedTransactionsFinished: (SKPaymentQueue *)queue 
+{ 
+    NSLog(@"received restored transactions: %lu", (unsigned  
+     long)queue.transactions.count); 
+ 
+    for(SKPaymentTransaction *transaction in queue.transactions){ 
+        if(transaction.transactionState ==  
+         SKPaymentTransactionStateRestored){  
+            //called when the user successfully restores a purchase 
+            NSLog(@"Transaction state -> Restored"); 
+            [self enablePurchaseProduct:  
+             transaction.payment.productIdentifier]; 
+            [[SKPaymentQueue defaultQueue]   
+             finishTransaction:transaction]; 
+            break; 
+        } 
+... 
+    }    
+} 
+
+-----------------------------------------------------------------------------------------------------------
+

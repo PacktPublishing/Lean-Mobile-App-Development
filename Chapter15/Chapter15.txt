@@ -1,0 +1,150 @@
+private GoogleCloudMessaging gcm; 
+... 
+String regid = gcm.register(FlavorConstants.PushConfiguration.GoogleConfiguration.  
+ GCM_PROJECT_NUMBER); 
+Log.i(getClass().toString(), "Obtained RegId from GCM : " + regid); 
+
+---------------------------------------------------------------------------------------
+
+func registerForPushNotifications(){         
+        print ("PN - register for PN")         
+        let center = UNUserNotificationCenter.current() 
+        center.delegate = self         
+        center.requestAuthorization(options:[.badge, .alert, .sound]) { (granted, error) in 
+            if error == nil { 
+                print ("PN - No error")                
+            } 
+            else{ 
+                print ("PN - Error ")                 
+            } 
+            if (!granted){ 
+                print ("PN - Not granted") 
+            } 
+            else{ 
+                print ("PN - granted") 
+            } 
+             
+            guard granted else { return } 
+            self.getNotificationSettings() 
+        } 
+    } 
+     
+    func getNotificationSettings() { 
+        UNUserNotificationCenter.current().getNotificationSettings { (settings) in 
+            print("Notification settings: \(settings)") 
+            guard settings.authorizationStatus == .authorized else { return } 
+            UIApplication.shared.registerForRemoteNotifications() 
+        } 
+    } 
+ 
+ func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) 
+    { 
+        let installation = PFInstallation.current() 
+        installation?.setDeviceTokenFrom(deviceToken) 
+        installation?.saveInBackground()         
+        PFPush.subscribeToChannel(inBackground: "global") { (result, error) in 
+            print("PN - subscribed to global") 
+        } 
+    } 
+
+--------------------------------------------------------------------------------------
+
+public class PushHandler extends NotificationsHandler { 
+ 
+    Context ctx; 
+ 
+    @Override 
+    public void onReceive(Context context, Bundle bundle) { 
+        ctx = context; 
+        String nhMessage = bundle.getString("message"); 
+        Parcelable parselableObject = bundle.getParcelable("parcel");            
+       consumeNotification(nhMessage,parselableObject); 
+    } 
+ 
+    private void consumeNotification(String msg, Parcelable parselableObject) { 
+ 
+        Log.i(this.getClass().toString(), "Consume notification");
+         Log.i(this.getClass().toString(), "Notification msg = "+msg); 
+ 
+        if (parselableObject != null) {
+             Log.i(this.getClass().toString(), "Consume has parcel"); 
+        } 
+ 
+        displayNotificationMessage(ctx, "Message", msg,msg); 
+    } 
+ 
+    public static void displayNotificationMessage(Context context, String title, String contentText,  
+      String tickerText){ 
+        displayNotificationMessage(context,title,contentText,tickerText,null); 
+    } 
+ 
+    public static void displayNotificationMessage(Context context, String title, String contentText, String tickerText, Parcelable parcelableObject){ 
+ 
+... 
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context); 
+        Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION); 
+ 
+        Bundle extras = new Bundle(); 
+        extras.putParcelable("parcel", parcelableObject); 
+ 
+        Notification notification = builder.setContentTitle(title) 
+                .setContentText(contentText) 
+                .setTicker(tickerText) 
+                .setSmallIcon(R.mipmap.appicon) 
+                .setContentIntent(pendingIntent) 
+                .setPriority(Notification.PRIORITY_HIGH) 
+                .setSound(soundUri) 
+                .setVibrate(new long[]{0, 500}) 
+                .setExtras(extras) 
+                .build(); 
+ 
+        NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE); 
+        notificationManager.notify(0, notification); 
+    } 
+
+----------------------------------------------------------------------------------------------
+
+    func application(_ application: UIApplication,  didFailToRegisterForRemoteNotificationsWithError error: Error) { 
+        print("Failed to register: \(error)") 
+    } 
+            
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) { 
+         
+        print ("PN - willPresent")         
+        let userInfo = notification.request.content.userInfo as NSDictionary 
+        let body = notification.request.content.body 
+        for (key, value) in userInfo { 
+            print("userInfo: \(key) -> value = \(value)") 
+        } 
+        if ... { 
+                print ("PN - completion handler silent") 
+                completionHandler([]) 
+            } 
+            else{ 
+                print ("PN - completion handler alert badge sound") 
+                completionHandler([.alert,.badge, .sound]) 
+            } 
+        } 
+       ... 
+    } 
+  
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) { 
+        print ("PN - Did receive") 
+        ... 
+        completionHandler() 
+    }
+
+------------------------------------------------------------------------------------------------
+
+ Parse.Push.send({ channels: "channel or channels", data: { title: "title", sound: 'default',  badge: 2, alert: "message", extraParam: "something" } },  
+    {   success: function () {   response.success("ok");   }, 
+        error: function (error) { response.success("nok: " + error); }, 
+        useMasterKey: true 
+    }); // push send 
+
+-------------------------------------------------------------------------------------------------
+
+data: { title: "title", sound: 'default',  badge: 2, alert: "message", extraParam: "something" }  
+
+-------------------------------------------------------------------------------------------------
+

@@ -1,0 +1,188 @@
+dependencies { 
+... 
+    compile 'com.android.support:recyclerview-v7:23.1.1' 
+    compile 'com.android.support:cardview-v7:23.1.1' 
+    compile 'com.squareup.retrofit:retrofit:2.0.0-beta3' 
+    compile 'com.squareup.picasso:picasso:2.5.2' 
+    compile 'com.squareup.retrofit:converter-gson:2.0.0-beta2' 
+    compile 'com.squareup.okhttp:okhttp:2.4.0' 
+    compile 'net.hockeyapp.android:HockeySDK:3.6.2' 
+} 
+
+---------------------------------------------------------------------
+
+platform :ios, '8.0' 
+use_frameworks! 
+target 'example-project' do 
+    pod 'ZXingObjC', '~>3.0' 
+    pod 'JSONJoy-Swift', '~> 1.0.0' 
+    pod 'SwiftHTTP', '~> 1.0.0' 
+end 
+
+----------------------------------------------------------------------
+
+func refresh (sender: AnyObject!) { 
+...         
+        let cngQuery = client.queryDataset("wwmu-gmzc")         
+        cngQuery.orderAscending("title").get { res in 
+            switch res { 
+            case .Dataset (let data): 
+                self.data = data 
+... 
+        } 
+    } 
+
+---------------------------------------------------------------------
+
+  override func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) ->   
+    UITableViewCell { 
+ 
+        let c = tableView.dequeueReusableCellWithIdentifier(cellId) as UITableViewCell! 
+         
+        let item = data[indexPath.row] 
+        let name = item["title"]! as! String         
+        c.textLabel?.text = name 
+ 
+        if (item["locations"] != nil){ 
+            let street = item["locations"]! as! String 
+            c.detailTextLabel?.text = street 
+        }  
+        return c 
+    } 
+
+----------------------------------------------------------------------
+
+func updateWithData(data: [[String: AnyObject]]!, animated: Bool) {         
+    self.data = data         
+     if (!isViewLoaded()) { 
+       return 
+     } 
+  
+     if mapView.annotations.count > 0 { 
+       let ex = mapView.annotations 
+       mapView.removeAnnotations(ex) 
+     } 
+         
+     var anns : [MKAnnotation] = [] 
+     for item in data { 
+        var location = item["locations"]  as? String 
+        if (location != nil){  
+           location  = location! + " San Fransisco, CA" 
+           print(location)  
+           let geocoder:CLGeocoder = CLGeocoder(); 
+           geocoder.geocodeAddressString(location!) { (placemarks:       
+             [CLPlacemark]?, error: NSError?) -> Void in 
+                     
+           print(placemarks?.count)  
+           if placemarks?.count > 0 { 
+           let topResult:CLPlacemark = placemarks![0]; 
+           let placemark: MKPlacemark = MKPlacemark(placemark:  
+             topResult); 
+  
+           let a = MKPointAnnotation() 
+           a.coordinate = placemark.coordinate; 
+           a.title = item["title"] as! NSString as String 
+           a.title = a.title! + " " + (item["locations"] as!  
+             NSString as String) 
+           anns.append(a);  
+                         
+           if (error == nil && a.coordinate.latitude != 0 &&       
+             a.coordinate.longitude != 0){ 
+                self.mapView.addAnnotation(a); 
+           } 
+                         
+    } 
+  }                 
+        let w = 1.0  
+        let r = MKCoordinateRegionMakeWithDistance(       
+          CLLocationCoordinate2D(latitude: 37.79666680533*w,  
+          longitude: -122.39826411049*w), 40000, 40000) 
+        self.mapView.setRegion(r, animated: false) 
+    } 
+} 
+
+--------------------------------------------------------------------
+
+<key>UberClientID</key> 
+    <string>your uber client id</string> 
+    <key>UberCallbackURI</key> 
+    <string></string> 
+    <key>LSApplicationQueriesSchemes</key> 
+    <array> 
+        <string>uber</string> 
+    </array>
+
+--------------------------------------------------------------------
+
+import UIKit 
+import UberRides 
+ 
+@UIApplicationMain 
+class AppDelegate: UIResponder, UIApplicationDelegate { 
+ 
+  var window: UIWindow?  
+ 
+  func application(application: UIApplication,    
+   didFinishLaunchingWithOptions launchOptions: [NSObject:  
+    AnyObject]?) -> Bool { 
+                 
+     // If true, all requests will hit the sandbox     
+     Configuration.setSandboxEnabled(true)         
+     return true 
+   } 
+
+-------------------------------------------------------------------
+
+import MapKit 
+import UberRides 
+import CoreLocation 
+
+------------------------------------------------------------------
+
+override func tableView(tableView: UITableView!,    
+  didSelectRowAtIndexPath indexPath: NSIndexPath!) { 
+       
+  let item = data[indexPath.row] 
+  var location = item["locations"]  as? String; 
+  if (location != nil){ 
+ 
+      location  = location! + " San Fransisco, CA" 
+      let geocoder:CLGeocoder = CLGeocoder(); 
+ 
+      geocoder.geocodeAddressString(location!) { (placemarks:     
+       [CLPlacemark]?, error: NSError?) -> Void in 
+ 
+        if placemarks?.count > 0 { 
+ 
+          let topResult:CLPlacemark = placemarks![0]; 
+          let placemark: MKPlacemark = MKPlacemark(placemark: 
+           topResult); 
+                     
+          if (error == nil && placemark.coordinate.latitude != 0 &&  
+           placemark.coordinate.longitude != 0){ 
+                         
+             let behavior = RideRequestViewRequestingBehavior(   
+              presentingViewController: self) 
+ 
+             let dropOffLocationlocation = CLLocation( 
+              latitude: placemark.coordinate.latitude,  
+              longitude: placemark.coordinate.longitude) 
+ 
+             let parameters = RideParametersBuilder().  
+               setDropoffLocation( dropOffLocationlocation).build() 
+ 
+             let button = RideRequestButton(rideParameters:  
+               parameters, requestingBehavior: behavior) 
+ 
+             self.view.addSubview(button) 
+           } 
+        } 
+     }         
+} 
+
+-----------------------------------------------------------------------
+
+"Title":"Basic Instinct","Year":"1992","Rated":"R","Released":"20 Mar 1992","Runtime":"127 min","Genre":"Drama, Mystery, Thriller","Director":"Paul Verhoeven","Writer":"Joe Eszterhas","Actors":"Michael Douglas, Sharon Stone, George Dzundza, Jeanne Tripplehorn","Plot":"A violent, suspended police detective investigates a brutal murder, in which a seductive woman could be involved.","Language":"English","Country":"France, USA","Awards":"Nominated for 2 Oscars. Another 5 wins & 18 nominations.","Poster":"http://ia.media-imdb.com/images/M/MV5BMTcxMjY2NzcyMV5BMl5BanBnXkFtZTYwMjAxNTQ5._V1_SX300.jpg","Metascore":"41","imdbRating":"6.9","imdbVotes":"131,796"," 
+
+-------------------------------------------------------------------------
+
